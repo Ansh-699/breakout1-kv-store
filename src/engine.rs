@@ -27,6 +27,7 @@ impl Engine {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&path)?;
 
         let mut engine = Engine {
@@ -96,7 +97,7 @@ impl Engine {
         };
 
         let data = wincode::serialize(&entry)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
 
         let entry_len = data.len() as u64;
 
@@ -131,7 +132,7 @@ impl Engine {
         };
 
         let data = wincode::serialize(&entry)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
 
         let entry_len = data.len() as u64;
 
