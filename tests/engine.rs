@@ -1,6 +1,6 @@
 use breakout1_kv_store::Engine;
-use tempfile::NamedTempFile;
 use std::fs;
+use tempfile::NamedTempFile;
 
 fn temp_engine() -> (Engine, NamedTempFile) {
     let file = NamedTempFile::new().unwrap();
@@ -129,9 +129,14 @@ fn test_binary_keys_and_values() {
 fn test_many_overwrites_index_stays_correct() {
     let (mut engine, _f) = temp_engine();
     for i in 0..100u32 {
-        engine.set(b"counter".to_vec(), i.to_le_bytes().to_vec()).unwrap();
+        engine
+            .set(b"counter".to_vec(), i.to_le_bytes().to_vec())
+            .unwrap();
     }
-    assert_eq!(engine.get(b"counter").unwrap(), Some(99u32.to_le_bytes().to_vec()));
+    assert_eq!(
+        engine.get(b"counter").unwrap(),
+        Some(99u32.to_le_bytes().to_vec())
+    );
 }
 
 #[test]
@@ -159,7 +164,10 @@ fn test_compact_removes_stale_entries() {
     let size_after = fs::metadata(&path).unwrap().len();
 
     assert!(size_after < size_before);
-    assert_eq!(engine.get(b"k").unwrap(), Some(49u32.to_le_bytes().to_vec()));
+    assert_eq!(
+        engine.get(b"k").unwrap(),
+        Some(49u32.to_le_bytes().to_vec())
+    );
 }
 
 #[test]
@@ -186,10 +194,15 @@ fn test_auto_compact_triggered_by_threshold() {
     let mut engine = Engine::load_with_threshold(&path, threshold).unwrap();
 
     for i in 0..200u32 {
-        engine.set(b"key".to_vec(), i.to_le_bytes().to_vec()).unwrap();
+        engine
+            .set(b"key".to_vec(), i.to_le_bytes().to_vec())
+            .unwrap();
     }
 
     let size = fs::metadata(&path).unwrap().len();
     assert!(size < threshold * 10);
-    assert_eq!(engine.get(b"key").unwrap(), Some(199u32.to_le_bytes().to_vec()));
+    assert_eq!(
+        engine.get(b"key").unwrap(),
+        Some(199u32.to_le_bytes().to_vec())
+    );
 }

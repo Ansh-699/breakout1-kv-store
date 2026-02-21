@@ -96,8 +96,7 @@ impl Engine {
             value: Some(value),
         };
 
-        let data = wincode::serialize(&entry)
-            .map_err(|e| io::Error::other(e.to_string()))?;
+        let data = wincode::serialize(&entry).map_err(|e| io::Error::other(e.to_string()))?;
 
         let entry_len = data.len() as u64;
 
@@ -110,7 +109,13 @@ impl Engine {
 
         self.file_size += 8 + entry_len;
 
-        self.index.insert(key, LogIndex { pos: data_pos, len: entry_len });
+        self.index.insert(
+            key,
+            LogIndex {
+                pos: data_pos,
+                len: entry_len,
+            },
+        );
 
         if self.file_size >= self.compact_threshold {
             self.compact()?;
@@ -119,7 +124,7 @@ impl Engine {
         Ok(())
     }
 
-    pub fn del(&mut self, key: Vec<u8>) -> io::Result<()>{
+    pub fn del(&mut self, key: Vec<u8>) -> io::Result<()> {
         let tstamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis() as i64)
@@ -131,14 +136,12 @@ impl Engine {
             value: None,
         };
 
-        let data = wincode::serialize(&entry)
-            .map_err(|e| io::Error::other(e.to_string()))?;
+        let data = wincode::serialize(&entry).map_err(|e| io::Error::other(e.to_string()))?;
 
         let entry_len = data.len() as u64;
 
         self.file.seek(SeekFrom::End(0))?;
         self.file.write_all(&entry_len.to_le_bytes())?;
-
 
         self.file.write_all(&data)?;
         self.file.flush()?;
@@ -195,7 +198,13 @@ impl Engine {
             tmp_file.write_all(&data)?;
 
             new_file_size += 8 + entry_len;
-            new_index.insert(key, LogIndex { pos: new_pos, len: entry_len });
+            new_index.insert(
+                key,
+                LogIndex {
+                    pos: new_pos,
+                    len: entry_len,
+                },
+            );
         }
 
         tmp_file.flush()?;
@@ -203,10 +212,7 @@ impl Engine {
 
         std::fs::rename(&tmp_path, &self.path)?;
 
-        self.file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&self.path)?;
+        self.file = OpenOptions::new().read(true).write(true).open(&self.path)?;
         self.index = new_index;
         self.file_size = new_file_size;
 
