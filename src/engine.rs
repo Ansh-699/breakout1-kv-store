@@ -10,9 +10,9 @@ use crate::types::{DataFileEntry, LogIndex};
 
 pub struct Engine {
     path: PathBuf,
-    file: Mutex<File>,                         
+    file: Mutex<File>,
     index: RwLock<HashMap<Vec<u8>, LogIndex>>,
-    file_size: Mutex<u64>,                     
+    file_size: Mutex<u64>,
     compact_threshold: u64,
     reader_pool: Mutex<Vec<File>>,
 }
@@ -26,7 +26,7 @@ impl Engine {
         let path = path.as_ref().to_path_buf();
         let file = OpenOptions::new()
             .read(true)
-            .write(true)
+            .append(true)
             .create(true)
             .truncate(false)
             .open(&path)?;
@@ -40,11 +40,11 @@ impl Engine {
 
         let engine = Engine {
             path,
-            file: Mutex::new(file),               
-            index: RwLock::new(HashMap::new()),   
-            file_size: Mutex::new(0),             
+            file: Mutex::new(file),
+            index: RwLock::new(HashMap::new()),
+            file_size: Mutex::new(0),
             compact_threshold,
-            reader_pool: Mutex::new(readers),     
+            reader_pool: Mutex::new(readers),
         };
 
         engine.rebuild_index()?;
@@ -52,8 +52,8 @@ impl Engine {
         Ok(engine)
     }
 
-    fn rebuild_index(&self) -> io::Result<()> { 
-        let mut file = self.file.lock().unwrap(); 
+    fn rebuild_index(&self) -> io::Result<()> {
+        let mut file = self.file.lock().unwrap();
         file.seek(SeekFrom::Start(0))?;
 
         loop {
@@ -73,7 +73,7 @@ impl Engine {
             let entry: DataFileEntry = wincode::deserialize(&data)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
-            let mut index = self.index.write().unwrap(); 
+            let mut index = self.index.write().unwrap();
             match entry.value {
                 Some(_) => {
                     index.insert(
@@ -90,12 +90,12 @@ impl Engine {
             }
         }
 
-        *self.file_size.lock().unwrap() = file.stream_position()?; 
+        *self.file_size.lock().unwrap() = file.stream_position()?;
 
         Ok(())
     }
 
-    pub fn set(&self, key: Vec<u8>, value: Vec<u8>) -> io::Result<()> { 
+    pub fn set(&self, key: Vec<u8>, value: Vec<u8>) -> io::Result<()> {
         let tstamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis() as i64)
@@ -111,17 +111,16 @@ impl Engine {
 
         let entry_len = data.len() as u64;
 
-        let mut file = self.file.lock().unwrap(); 
-        file.seek(SeekFrom::End(0))?;
+        let mut file = self.file.lock().unwrap();
         file.write_all(&entry_len.to_le_bytes())?;
 
         let data_pos = file.stream_position()?;
         file.write_all(&data)?;
         file.flush()?;
 
-        *self.file_size.lock().unwrap() += LEN_PREFIX_SIZE + entry_len; 
+        *self.file_size.lock().unwrap() += LEN_PREFIX_SIZE + entry_len;
 
-        self.index.write().unwrap().insert( 
+        self.index.write().unwrap().insert(
             key,
             LogIndex {
                 pos: data_pos,
@@ -129,8 +128,8 @@ impl Engine {
             },
         );
 
-        let should_compact = *self.file_size.lock().unwrap() >= self.compact_threshold; 
-        drop(file); 
+        let should_compact = *self.file_size.lock().unwrap() >= self.compact_threshold;
+        drop(file);
 
         if should_compact {
             self.compact()?;
@@ -139,7 +138,7 @@ impl Engine {
         Ok(())
     }
 
-    pub fn del(&self, key: Vec<u8>) -> io::Result<()> { 
+    pub fn del(&self, key: Vec<u8>) -> io::Result<()> {
         let tstamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis() as i64)
@@ -155,32 +154,32 @@ impl Engine {
 
         let entry_len = data.len() as u64;
 
-        let mut file = self.file.lock().unwrap(); 
-        file.seek(SeekFrom::End(0))?;
+        let mut file = self.file.lock().unwrap();
         file.write_all(&entry_len.to_le_bytes())?;
 
         file.write_all(&data)?;
         file.flush()?;
 
-        *self.file_size.lock().unwrap() += LEN_PREFIX_SIZE + entry_len; 
-        self.index.write().unwrap().remove(&key); 
+        *self.file_size.lock().unwrap() += LEN_PREFIX_SIZE + entry_len;
+        self.index.write().unwrap().remove(&key);
 
         Ok(())
     }
 
-    pub fn get(&self, key: &[u8]) -> io::Result<Option<Vec<u8>>> { 
-        let log_index = match self.index.read().unwrap().get(key) { 
+    pub fn get(&self, key: &[u8]) -> io::Result<Option<Vec<u8>>> {
+        let index = self.index.read().unwrap();
+
+        let log_index = match index.get(key) {
             Some(idx) => idx.clone(),
             None => return Ok(None),
         };
 
         let mut reader = {
             let mut pool = self.reader_pool.lock().unwrap();
-            pool.pop()
-        };
-        let mut reader = match reader {
-            Some(r) => r,
-            None => OpenOptions::new().read(true).open(&self.path)?,
+            match pool.pop() {
+                Some(r) => r,
+                None => OpenOptions::new().read(true).open(&self.path)?,
+            }
         };
 
         reader.seek(SeekFrom::Start(log_index.pos))?;
@@ -195,14 +194,16 @@ impl Engine {
             }
         }
 
+        drop(index);
+
         let entry: DataFileEntry = wincode::deserialize(&data)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
 
         Ok(entry.value)
     }
 
-    pub fn compact(&self) -> io::Result<()> { 
-        let mut file = self.file.lock().unwrap(); 
+    pub fn compact(&self) -> io::Result<()> {
+        let mut file = self.file.lock().unwrap();
 
         let tmp_path = self.path.with_extension("tmp");
 
@@ -215,7 +216,7 @@ impl Engine {
 
         let entries: Vec<(Vec<u8>, LogIndex)> = self
             .index
-            .read() 
+            .read()
             .unwrap()
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
@@ -247,21 +248,25 @@ impl Engine {
         tmp_file.flush()?;
         drop(tmp_file);
 
+        self.reader_pool.lock().unwrap().clear();
+
+        let mut index = self.index.write().unwrap();
+
         std::fs::rename(&tmp_path, &self.path)?;
+        *file = OpenOptions::new()
+            .read(true)
+            .append(true)
+            .open(&self.path)?;
+        *index = new_index;
+        *self.file_size.lock().unwrap() = new_file_size;
 
-        *file = OpenOptions::new().read(true).write(true).open(&self.path)?; 
-        *self.index.write().unwrap() = new_index; 
-        *self.file_size.lock().unwrap() = new_file_size; 
-
-        {
-            let mut pool = self.reader_pool.lock().unwrap();
-            pool.clear();
-            for _ in 0..4 {
-                if let Ok(r) = OpenOptions::new().read(true).open(&self.path) {
-                    pool.push(r);
-                }
+        let mut pool = self.reader_pool.lock().unwrap();
+        for _ in 0..4 {
+            if let Ok(r) = OpenOptions::new().read(true).open(&self.path) {
+                pool.push(r);
             }
         }
+
         Ok(())
     }
 }
