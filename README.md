@@ -118,9 +118,38 @@ make check
 # clean
 make clean
 
+# benchmarks
+make bench
+
 # format (requires nightly toolchain)
 make fmt
 ```
+
+## Benchmarks Results
+
+Run with `make bench`. Results from Criterion on a single machine (your numbers may vary):
+
+Benchmark environment:
+
+- CPU: Intel(R) Xeon(R) Platinum 8481C, 8 vCPUs, x86_64
+- RAM: 31 GiB
+- OS: Linux 6.1.0-42-cloud-amd64 x86_64 GNU/Linux
+
+| Benchmark | Time |
+|---|---|
+| `set_single_key` | 12.31 µs |
+| `get_existing_key` | 797.54 ns |
+| `get_missing_key` | 28.72 ns |
+| `overwrite_same_key` | 2.11 µs |
+| `delete_key` | 2.00 µs |
+| `set_delete_key` | 4.08 µs |
+| `set_then_get` | 3.05 µs |
+| `compact_after_overwrites` | 240.84 µs |
+| `load_rebuild_index_1000_keys` | 1.15 ms |
+| `set_get_4kb_value` | 5.38 µs |
+| `concurrent_reads_8_threads` | 4.81 ms |
+| `concurrent_writes_4_threads` | 4.74 ms |
+| `mixed_set_get_del_1000_ops` | 2.90 ms |
 
 ## Dependencies
 
