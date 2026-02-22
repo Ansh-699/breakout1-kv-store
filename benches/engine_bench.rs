@@ -6,18 +6,18 @@ use tempfile::NamedTempFile;
 
 fn bench_set(c: &mut Criterion) {
     c.bench_function("set_single_key", |b| {
-        let file = NamedTempFile::new().unwrap();
-        let engine = Engine::load_with_threshold(file.path(), u64::MAX).unwrap();
-        let mut i = 0u64;
-        b.iter(|| {
-            engine
-                .set(
-                    black_box(format!("key{}", i).as_bytes()),
-                    black_box(b"value"),
-                )
-                .unwrap();
-            i += 1;
-        });
+        b.iter_batched(
+            || {
+                let file = NamedTempFile::new().unwrap();
+                let engine = Engine::load_with_threshold(file.path(), u64::MAX).unwrap();
+                let key = b"bench_set_key".to_vec();
+                (engine, file, key)
+            },
+            |(engine, _file, key)| {
+                engine.set(black_box(&key), black_box(b"value")).unwrap();
+            },
+            BatchSize::PerIteration,
+        );
     });
 }
 
@@ -69,19 +69,21 @@ fn bench_overwrite(c: &mut Criterion) {
 
 fn bench_delete(c: &mut Criterion) {
     c.bench_function("delete_key", |b| {
-        b.iter_batched(
-            || {
-                let file = NamedTempFile::new().unwrap();
-                let engine = Engine::load_with_threshold(file.path(), u64::MAX).unwrap();
-                let key = b"bench_del_key".to_vec();
-                engine.set(&key, b"value").unwrap();
-                (engine, file, key)
-            },
-            |(engine, _file, key)| {
-                engine.del(black_box(&key)).unwrap();
-            },
-            BatchSize::PerIteration,
-        );
+        let file = NamedTempFile::new().unwrap();
+        let engine = Engine::load_with_threshold(file.path(), u64::MAX).unwrap();
+
+        for idx in 0..100_000u64 {
+            let key = format!("key{}", idx);
+            engine.set(key.as_bytes(), b"value").unwrap();
+        }
+
+        let mut i = 0u64;
+        b.iter(|| {
+            engine
+                .del(black_box(format!("key{}", i % 100_000).as_bytes()))
+                .unwrap();
+            i = i.wrapping_add(1);
+        });
     });
 }
 
