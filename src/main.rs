@@ -20,17 +20,17 @@ async fn main() -> std::io::Result<()> {
             .route("/get/{key}", web::get().to(get_handler))
             .route("/del/{key}", web::delete().to(del_handler))
     })
-    .bind(" ")?
+    .bind("127.0.0.1:8080")?
     .run()
     .await
 }
 
 async fn home(_req: HttpRequest) -> impl Responder {
-    format!("Welcome!")
+    "Welcome!".to_string()
 }
 
 async fn set_handler(req: web::Json<SetRequest>, engine: web::Data<Engine>) -> impl Responder {
-    let op = engine.set(req.key.clone().into_bytes(), req.value.clone().into_bytes());
+    let op = engine.set(req.key.as_bytes(), req.value.as_bytes());
     match op {
         Ok(_) => HttpResponse::Ok().body("OK"),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
@@ -42,12 +42,12 @@ async fn get_handler(req: web::Path<String>, engine: web::Data<Engine>) -> impl 
     match op {
         Ok(Some(val)) => HttpResponse::Ok().body(val),
         Ok(None) => HttpResponse::NotFound().body("Key is not found"),
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string())
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
 
 async fn del_handler(req: web::Path<String>, engine: web::Data<Engine>) -> impl Responder {
-    let op = engine.del(req.clone().into_bytes());
+    let op = engine.del(req.as_bytes());
     match op {
         Ok(_) => HttpResponse::Ok().body("OK"),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
