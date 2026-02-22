@@ -253,7 +253,10 @@ impl Engine {
         let mut index = self.index.write().unwrap();
 
         std::fs::rename(&tmp_path, &self.path)?;
-        *file = OpenOptions::new().read(true).append(true).open(&self.path)?;
+        *file = OpenOptions::new()
+            .read(true)
+            .append(true)
+            .open(&self.path)?;
         *index = new_index;
         *self.file_size.lock().unwrap() = new_file_size;
 
