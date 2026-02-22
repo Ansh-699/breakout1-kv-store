@@ -52,12 +52,46 @@ Auto-compaction fires inside `set` whenever the log file exceeds the threshold (
 
 Reads and writes are safe to call from multiple threads. The engine wraps the write file handle in a `Mutex` and the index in an `RwLock`, allowing concurrent reads while serializing writes. The read path holds the index read lock across the full operation (index lookup, file handle acquisition, I/O, and handle return) to prevent a race with compaction swapping the underlying file.
 
+## HTTP API
+
+The server runs on `http://127.0.0.1:8080`. All keys and values are plain strings.
+
+| Method | Path | Body | Description |
+|---|---|---|---|
+| `GET` | `/` | | Health check |
+| `POST` | `/set` | `{"key": "k", "value": "v"}` | Store a key-value pair |
+| `GET` | `/get/{key}` | | Retrieve a value by key |
+| `DELETE` | `/del/{key}` | | Delete a key |
+
+### Examples
+
+```bash
+# set
+curl -X POST http://127.0.0.1:8080/set \
+  -H "Content-Type: application/json" \
+  -d '{"key": "hello", "value": "world"}'
+
+# get
+curl http://127.0.0.1:8080/get/hello
+
+# delete
+curl -X DELETE http://127.0.0.1:8080/del/hello
+```
+
+### Responses
+
+| Status | Meaning |
+|---|---|
+| `200 OK` | Success, body contains the value (get) or `OK` (set/del) |
+| `404 Not Found` | Key does not exist (get only) |
+| `500 Internal Server Error` | Storage error |
+
 ## Project Structure
 
 ```
 src/
   lib.rs          - crate root, module declarations
-  main.rs         - basic usage example
+  main.rs         - actix-web HTTP server
   engine.rs       - Engine struct, all storage logic
   types.rs        - DataFileEntry, LogIndex
   constants.rs    - DEFAULT_COMPACT_THRESHOLD, LEN_PREFIX_SIZE
@@ -90,5 +124,6 @@ make fmt
 
 ## Dependencies
 
+- [actix-web](https://crates.io/crates/actix-web) - HTTP server framework
 - [wincode](https://github.com/anza-xyz/wincode) - fast, bincode-compatible serialization
 - [tempfile](https://crates.io/crates/tempfile) - temporary files for tests

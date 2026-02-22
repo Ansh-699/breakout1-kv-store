@@ -68,7 +68,11 @@ impl Engine {
             let data_pos = file.stream_position()?;
 
             let mut data = vec![0u8; entry_len as usize];
-            file.read_exact(&mut data)?;
+            match file.read_exact(&mut data) {
+                Ok(_) => {}
+                Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => break,
+                Err(e) => return Err(e),
+            }
 
             let entry: DataFileEntry = wincode::deserialize(&data)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
@@ -95,7 +99,7 @@ impl Engine {
         Ok(())
     }
 
-    pub fn set(&self, key: Vec<u8>, value: Vec<u8>) -> io::Result<()> {
+    pub fn set(&self, key: &[u8], value: &[u8]) -> io::Result<()> {
         let tstamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis() as i64)
@@ -103,8 +107,8 @@ impl Engine {
 
         let entry = DataFileEntry {
             tstamp,
-            key: key.clone(),
-            value: Some(value),
+            key: key.to_vec(),
+            value: Some(value.to_vec()),
         };
 
         let data = wincode::serialize(&entry).map_err(|e| io::Error::other(e.to_string()))?;
@@ -121,7 +125,7 @@ impl Engine {
         *self.file_size.lock().unwrap() += LEN_PREFIX_SIZE + entry_len;
 
         self.index.write().unwrap().insert(
-            key,
+            key.to_vec(),
             LogIndex {
                 pos: data_pos,
                 len: entry_len,
@@ -138,7 +142,7 @@ impl Engine {
         Ok(())
     }
 
-    pub fn del(&self, key: Vec<u8>) -> io::Result<()> {
+    pub fn del(&self, key: &[u8]) -> io::Result<()> {
         let tstamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis() as i64)
@@ -146,7 +150,7 @@ impl Engine {
 
         let entry = DataFileEntry {
             tstamp,
-            key: key.clone(),
+            key: key.to_vec(),
             value: None,
         };
 
@@ -161,7 +165,7 @@ impl Engine {
         file.flush()?;
 
         *self.file_size.lock().unwrap() += LEN_PREFIX_SIZE + entry_len;
-        self.index.write().unwrap().remove(&key);
+        self.index.write().unwrap().remove(key);
 
         Ok(())
     }

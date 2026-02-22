@@ -14,7 +14,7 @@ fn temp_engine() -> (Engine, NamedTempFile) {
 #[test]
 fn test_set_and_get() {
     let (engine, _f) = temp_engine();
-    engine.set(b"name".to_vec(), b"alice".to_vec()).unwrap();
+    engine.set(b"name", b"alice").unwrap();
     assert_eq!(engine.get(b"name").unwrap(), Some(b"alice".to_vec()));
 }
 
@@ -27,31 +27,31 @@ fn test_get_nonexistent_key_returns_none() {
 #[test]
 fn test_delete_key() {
     let (engine, _f) = temp_engine();
-    engine.set(b"key".to_vec(), b"value".to_vec()).unwrap();
-    engine.del(b"key".to_vec()).unwrap();
+    engine.set(b"key", b"value").unwrap();
+    engine.del(b"key").unwrap();
     assert_eq!(engine.get(b"key").unwrap(), None);
 }
 
 #[test]
 fn test_delete_nonexistent_key_is_ok() {
     let (engine, _f) = temp_engine();
-    engine.del(b"nothing".to_vec()).unwrap();
+    engine.del(b"nothing").unwrap();
 }
 
 #[test]
 fn test_overwrite_key() {
     let (engine, _f) = temp_engine();
-    engine.set(b"k".to_vec(), b"v1".to_vec()).unwrap();
-    engine.set(b"k".to_vec(), b"v2".to_vec()).unwrap();
+    engine.set(b"k", b"v1").unwrap();
+    engine.set(b"k", b"v2").unwrap();
     assert_eq!(engine.get(b"k").unwrap(), Some(b"v2".to_vec()));
 }
 
 #[test]
 fn test_multiple_keys() {
     let (engine, _f) = temp_engine();
-    engine.set(b"a".to_vec(), b"1".to_vec()).unwrap();
-    engine.set(b"b".to_vec(), b"2".to_vec()).unwrap();
-    engine.set(b"c".to_vec(), b"3".to_vec()).unwrap();
+    engine.set(b"a", b"1").unwrap();
+    engine.set(b"b", b"2").unwrap();
+    engine.set(b"c", b"3").unwrap();
 
     assert_eq!(engine.get(b"a").unwrap(), Some(b"1".to_vec()));
     assert_eq!(engine.get(b"b").unwrap(), Some(b"2".to_vec()));
@@ -65,8 +65,8 @@ fn test_index_rebuilt_after_reload() {
 
     {
         let engine = Engine::load(&path).unwrap();
-        engine.set(b"foo".to_vec(), b"bar".to_vec()).unwrap();
-        engine.set(b"hello".to_vec(), b"world".to_vec()).unwrap();
+        engine.set(b"foo", b"bar").unwrap();
+        engine.set(b"hello", b"world").unwrap();
     }
 
     let engine = Engine::load(&path).unwrap();
@@ -81,8 +81,8 @@ fn test_delete_persists_after_reload() {
 
     {
         let engine = Engine::load(&path).unwrap();
-        engine.set(b"key".to_vec(), b"val".to_vec()).unwrap();
-        engine.del(b"key".to_vec()).unwrap();
+        engine.set(b"key", b"val").unwrap();
+        engine.del(b"key").unwrap();
     }
 
     let engine = Engine::load(&path).unwrap();
@@ -96,8 +96,8 @@ fn test_overwrite_persists_after_reload() {
 
     {
         let engine = Engine::load(&path).unwrap();
-        engine.set(b"k".to_vec(), b"old".to_vec()).unwrap();
-        engine.set(b"k".to_vec(), b"new".to_vec()).unwrap();
+        engine.set(b"k", b"old").unwrap();
+        engine.set(b"k", b"new").unwrap();
     }
 
     let engine = Engine::load(&path).unwrap();
@@ -107,7 +107,7 @@ fn test_overwrite_persists_after_reload() {
 #[test]
 fn test_empty_value() {
     let (engine, _f) = temp_engine();
-    engine.set(b"empty".to_vec(), b"".to_vec()).unwrap();
+    engine.set(b"empty", b"").unwrap();
     assert_eq!(engine.get(b"empty").unwrap(), Some(b"".to_vec()));
 }
 
@@ -115,7 +115,7 @@ fn test_empty_value() {
 fn test_large_value() {
     let (engine, _f) = temp_engine();
     let large_val = vec![0xABu8; DEFAULT_COMPACT_THRESHOLD as usize];
-    engine.set(b"big".to_vec(), large_val.clone()).unwrap();
+    engine.set(b"big", &large_val).unwrap();
     assert_eq!(engine.get(b"big").unwrap(), Some(large_val));
 }
 
@@ -124,7 +124,7 @@ fn test_binary_keys_and_values() {
     let (engine, _f) = temp_engine();
     let key = vec![0x00, 0xFF, 0x42, 0x13];
     let val = vec![0xDE, 0xAD, 0xBE, 0xEF];
-    engine.set(key.clone(), val.clone()).unwrap();
+    engine.set(&key, &val).unwrap();
     assert_eq!(engine.get(&key).unwrap(), Some(val));
 }
 
@@ -132,9 +132,7 @@ fn test_binary_keys_and_values() {
 fn test_many_overwrites_index_stays_correct() {
     let (engine, _f) = temp_engine();
     for i in 0..100u32 {
-        engine
-            .set(b"counter".to_vec(), i.to_le_bytes().to_vec())
-            .unwrap();
+        engine.set(b"counter", &i.to_le_bytes()).unwrap();
     }
     assert_eq!(
         engine.get(b"counter").unwrap(),
@@ -145,8 +143,8 @@ fn test_many_overwrites_index_stays_correct() {
 #[test]
 fn test_compact_live_keys_still_readable() {
     let (engine, _f) = temp_engine();
-    engine.set(b"a".to_vec(), b"1".to_vec()).unwrap();
-    engine.set(b"b".to_vec(), b"2".to_vec()).unwrap();
+    engine.set(b"a", b"1").unwrap();
+    engine.set(b"b", b"2").unwrap();
     engine.compact().unwrap();
     assert_eq!(engine.get(b"a").unwrap(), Some(b"1".to_vec()));
     assert_eq!(engine.get(b"b").unwrap(), Some(b"2".to_vec()));
@@ -159,7 +157,7 @@ fn test_compact_removes_stale_entries() {
     let engine = Engine::load(&path).unwrap();
 
     for i in 0..50u32 {
-        engine.set(b"k".to_vec(), i.to_le_bytes().to_vec()).unwrap();
+        engine.set(b"k", &i.to_le_bytes()).unwrap();
     }
 
     let size_before = fs::metadata(&path).unwrap().len();
@@ -176,8 +174,8 @@ fn test_compact_removes_stale_entries() {
 #[test]
 fn test_compact_drops_deleted_keys() {
     let (engine, _f) = temp_engine();
-    engine.set(b"gone".to_vec(), b"bye".to_vec()).unwrap();
-    engine.del(b"gone".to_vec()).unwrap();
+    engine.set(b"gone", b"bye").unwrap();
+    engine.del(b"gone").unwrap();
     engine.compact().unwrap();
     assert_eq!(engine.get(b"gone").unwrap(), None);
 }
@@ -197,9 +195,7 @@ fn test_auto_compact_triggered_by_threshold() {
     let engine = Engine::load_with_threshold(&path, threshold).unwrap();
 
     for i in 0..200u32 {
-        engine
-            .set(b"key".to_vec(), i.to_le_bytes().to_vec())
-            .unwrap();
+        engine.set(b"key", &i.to_le_bytes()).unwrap();
     }
 
     let size = fs::metadata(&path).unwrap().len();
@@ -220,8 +216,8 @@ fn test_concurrent_reads() {
     for i in 0..100u32 {
         engine
             .set(
-                format!("key{}", i).into_bytes(),
-                format!("value{}", i).into_bytes(),
+                format!("key{}", i).as_bytes(),
+                format!("value{}", i).as_bytes(),
             )
             .unwrap();
     }
@@ -254,7 +250,7 @@ fn test_concurrent_writes_different_keys() {
             for i in 0..50u32 {
                 let key = format!("t{}_k{}", t, i);
                 let value = format!("t{}_v{}", t, i);
-                engine.set(key.into_bytes(), value.into_bytes()).unwrap();
+                engine.set(key.as_bytes(), value.as_bytes()).unwrap();
             }
         }));
     }
@@ -286,7 +282,7 @@ fn test_concurrent_writes_same_key() {
         handles.push(thread::spawn(move || {
             for i in 0..100u32 {
                 engine
-                    .set(b"shared".to_vec(), format!("t{}_i{}", t, i).into_bytes())
+                    .set(b"shared", format!("t{}_i{}", t, i).as_bytes())
                     .unwrap();
             }
         }));
@@ -307,8 +303,8 @@ fn test_concurrent_reads_and_writes() {
     for i in 0..50u32 {
         engine
             .set(
-                format!("key{}", i).into_bytes(),
-                format!("value{}", i).into_bytes(),
+                format!("key{}", i).as_bytes(),
+                format!("value{}", i).as_bytes(),
             )
             .unwrap();
     }
@@ -332,7 +328,7 @@ fn test_concurrent_reads_and_writes() {
             for i in 0..100u32 {
                 let key = format!("new_{}_{}", t, i);
                 let value = format!("val_{}_{}", t, i);
-                engine.set(key.into_bytes(), value.into_bytes()).unwrap();
+                engine.set(key.as_bytes(), value.as_bytes()).unwrap();
             }
         }));
     }
@@ -358,8 +354,8 @@ fn test_concurrent_reads_during_compaction() {
     for i in 0..100u32 {
         engine
             .set(
-                format!("key{}", i % 10).into_bytes(),
-                format!("value{}", i).into_bytes(),
+                format!("key{}", i % 10).as_bytes(),
+                format!("value{}", i).as_bytes(),
             )
             .unwrap();
     }
@@ -412,8 +408,8 @@ fn test_concurrent_writes_and_deletes() {
             for i in 0..200u32 {
                 engine
                     .set(
-                        format!("key{}", i).into_bytes(),
-                        format!("value{}", i).into_bytes(),
+                        format!("key{}", i).as_bytes(),
+                        format!("value{}", i).as_bytes(),
                     )
                     .unwrap();
             }
@@ -424,7 +420,7 @@ fn test_concurrent_writes_and_deletes() {
         let engine = Arc::clone(&engine);
         handles.push(thread::spawn(move || {
             for i in (0..200u32).step_by(2) {
-                engine.del(format!("key{}", i).into_bytes()).unwrap();
+                engine.del(format!("key{}", i).as_bytes()).unwrap();
             }
         }));
     }
@@ -433,6 +429,6 @@ fn test_concurrent_writes_and_deletes() {
         handle.join().unwrap();
     }
 
-    engine.set(b"final".to_vec(), b"test".to_vec()).unwrap();
+    engine.set(b"final", b"test").unwrap();
     assert_eq!(engine.get(b"final").unwrap(), Some(b"test".to_vec()));
 }
